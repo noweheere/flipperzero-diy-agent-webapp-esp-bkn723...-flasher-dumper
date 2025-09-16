@@ -1,0 +1,129 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px 0;
+}
+
+.container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: 90%;
+    max-width: 600px;
+}
+
+h1, h3 {
+    color: #0056b3;
+    text-align: center;
+}
+
+.controls, .file-input, .actions, .dump-controls, .wiring-diagram {
+    margin-bottom: 20px;
+}
+
+.dump-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.dump-controls label {
+    margin-right: 5px;
+}
+
+.dump-controls input {
+    width: 100px;
+}
+
+#baudRateContainer {
+    display: none;
+}
+
+label {
+    margin-right: 10px;
+}
+
+input[type="file"], input[type="number"], input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+button {
+    padding: 10px 15px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+#eraseButton {
+    background-color: #dc3545;
+}
+
+#eraseButton:hover:not(:disabled) {
+    background-color: #c82333;
+}
+
+#dumpButton {
+    background-color: #17a2b8;
+}
+
+#dumpButton:hover:not(:disabled) {
+    background-color: #138496;
+}
+
+.progress-container {
+    width: 100%;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.progress-bar {
+    height: 20px;
+    width: 0%;
+    background-color: #28a745;
+    border-radius: 4px;
+    text-align: center;
+    line-height: 20px;
+    color: white;
+    transition: width 0.4s ease;
+}
+
+.log-container {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 10px;
+    height: 200px;
+    overflow-y: scroll;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.wiring-diagram {
+    text-align: center;
+}
+
+#wiringCanvas {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}

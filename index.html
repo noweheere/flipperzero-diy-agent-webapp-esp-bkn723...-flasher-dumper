@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-g" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flipper Zero Wi-Fi Dev Board RTL8710BN Flasher</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <div class="container">
+        <h1>Flipper Zero Wi-Fi Dev Board RTL8710BN Flasher</h1>
+        <div class="controls">
+            <button id="connectButton" aria-label="Connect to serial port">Connect</button>
+            <div id="baudRateContainer">
+                <label for="baudRate">Baud Rate:</label>
+                <input type="number" id="baudRate" value="115200">
+            </div>
+        </div>
+        <div class="file-input">
+            <label for="binFile">Select .bin file:</label>
+            <input type="file" id="binFile" accept=".bin">
+        </div>
+        <div class="actions">
+            <button id="flashButton" disabled>Flash</button>
+            <button id="eraseButton" disabled>Erase</button>
+            <button id="dumpButton" disabled>Dump</button>
+        </div>
+        <div class="dump-controls">
+            <label for="dumpAddr">Address:</label>
+            <input type="text" id="dumpAddr" value="0x8000000" placeholder="e.g., 0x8000000">
+            <label for="dumpLen">Length:</label>
+            <input type="number" id="dumpLen" value="256" placeholder="e.g., 256">
+        </div>
+        <div class="progress-container" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="log-container">
+            <h3>Log</h3>
+            <pre id="log" aria-live="polite"></pre>
+        </div>
+        <div class="wiring-diagram">
+            <h3>Wiring Diagram</h3>
+            <canvas id="wiringCanvas" width="560" height="200" aria-label="Wiring diagram showing connections between Flipper Zero and Wi-Fi Dev Board"></canvas>
+        </div>
+    </div>
+    <script type="module" src="index.tsx"></script>
+  </body>
+</html>

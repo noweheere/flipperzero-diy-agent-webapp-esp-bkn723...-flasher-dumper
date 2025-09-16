@@ -1,0 +1,7 @@
+{
+  "name": "Flipper Zero Wi-Fi Flasher",
+  "description": "A web-based tool to flash firmware onto a Flipper Zero Wi-Fi Dev Board (RTL8710BN) using the Web Serial API.",
+  "requestFramePermissions": [
+    "serial"
+  ]
+}
