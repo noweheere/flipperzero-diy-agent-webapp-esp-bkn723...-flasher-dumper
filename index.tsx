@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+/** Definiert die verfügbaren Formate für den Speicher-Dump. */
 type DumpFormat = "BIN" | "Intel HEX" | "Motorola S-Record" | "ASCII/Text";
 
+/** Liste der auswählbaren Dump-Formate für die UI. */
 const formatOptions: DumpFormat[] = [
   "BIN",
   "Intel HEX",
@@ -10,8 +12,13 @@ const formatOptions: DumpFormat[] = [
   "ASCII/Text",
 ];
 
+/** Definiert die unterstützten Programmier-/Adaptergeräte. */
 type Device = "ST-Link" | "BusPirate v3.6" | "Flipper Zero" | "FTDI_USB" | "Raspberry Pi";
 
+/**
+ * Speichert Konfigurationsdetails für jedes Programmiergerät.
+ * Enthält Verkabelungshinweise und relevante Links zu Treibern/Dokumentation.
+ */
 const deviceDrivers: Record<Device, { wiring: string; links: { title: string; url: string }[] }> = {
   "ST-Link": {
     wiring: "ST-Link SWDIO->Target SWDIO, SWCLK->Target SWCLK, 3V3, GND, NRST (optional)",
@@ -46,6 +53,7 @@ const deviceDrivers: Record<Device, { wiring: string; links: { title: string; ur
   },
 };
 
+/** Eindeutiger Schlüssel für jedes Ziel-Hardwaregerät. */
 type TargetDeviceKey =
   | "RTL8710BN"
   | "STM32F1xx"
@@ -65,6 +73,13 @@ type TargetDeviceKey =
   | "MX25L64"
   | "24LC256";
 
+/**
+ * Definiert die Struktur für die Informationen eines Zielgeräts.
+ * @property {string} name - Der vollständige Name des Geräts.
+ * @property {string} pins - Pinbelegung für das Flashen/Dumping.
+ * @property {string[]} tips - Spezifische Tipps und Hinweise zur Handhabung.
+ * @property {object[]} links - Relevante Links zu Datenblättern, Pinouts etc.
+ */
 type TargetDevice = {
   name: string;
   pins: string;
@@ -72,6 +87,10 @@ type TargetDevice = {
   links: { title: string; url: string }[];
 };
 
+/**
+ * Datenbank, die detaillierte Informationen für jedes unterstützte Zielgerät enthält.
+ * Umfasst Mikrocontroller, Flash-Speicher und EEPROMs.
+ */
 const targetHardware: Record<TargetDeviceKey, TargetDevice> = {
   RTL8710BN: {
     name: "Realtek RTL8710BN",
@@ -284,6 +303,12 @@ const targetHardware: Record<TargetDeviceKey, TargetDevice> = {
   },
 };
 
+/**
+ * Konvertiert ein Uint8Array in einen lesbaren Hex-Dump-String.
+ * Jede Zeile repräsentiert 16 Bytes.
+ * @param {Uint8Array} bytes Das zu konvertierende Uint8Array.
+ * @returns {string} Ein formatierter String im Hex-Dump-Stil.
+ */
 function toHexDump(bytes: Uint8Array): string {
   const lines: string[] = [];
   for (let i = 0; i < bytes.length; i += 16) {
@@ -294,6 +319,12 @@ function toHexDump(bytes: Uint8Array): string {
   return lines.join("\n");
 }
 
+/**
+ * Konvertiert ein Uint8Array in das Intel HEX-Format.
+ * @param {Uint8Array} bytes Das zu konvertierende Uint8Array.
+ * @param {number} [baseAddr=0] Die Startadresse für den Hex-Datensatz.
+ * @returns {string} Ein String im Intel HEX-Format, mit Zeilenumbrüchen.
+ */
 function toIntelHex(bytes: Uint8Array, baseAddr = 0): string {
   const recs: string[] = [];
   let addr = baseAddr;
@@ -316,6 +347,13 @@ function toIntelHex(bytes: Uint8Array, baseAddr = 0): string {
   return recs.join("\n");
 }
 
+/**
+ * Konvertiert ein Uint8Array in das Motorola S-Record (SREC) Format.
+ * Verwendet S3-Datensätze für 32-Bit-Adressen.
+ * @param {Uint8Array} bytes Das zu konvertierende Uint8Array.
+ * @param {number} [baseAddr=0] Die Startadresse für die Datensätze.
+ * @returns {string} Ein String im SREC-Format, mit Zeilenumbrüchen.
+ */
 function toSrec(bytes: Uint8Array, baseAddr = 0): string {
   const lines: string[] = [];
   for (let i = 0; i < bytes.length; i += 16) {
@@ -340,6 +378,12 @@ function toSrec(bytes: Uint8Array, baseAddr = 0): string {
   return lines.join("\n");
 }
 
+/**
+ * Löst einen Datei-Download im Browser für einen gegebenen Blob aus.
+ * @param {string} name Der Dateiname für den Download.
+ * @param {string} mime Der MIME-Typ der Datei.
+ * @param {BlobPart} data Die herunterzuladenden Daten.
+ */
 function downloadBlob(name: string, mime: string, data: BlobPart) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([data], { type: mime }));
@@ -352,6 +396,11 @@ function downloadBlob(name: string, mime: string, data: BlobPart) {
   }, 0);
 }
 
+/**
+ * Die Hauptkomponente der Anwendung.
+ * Verwaltet den Zustand und rendert die Benutzeroberfläche für das Flashen und Verwalten von Geräten.
+ * @returns {React.ReactElement} Das gerenderte UI der App.
+ */
 const App: React.FC = () => {
   const [connected, setConnected] = useState(false);
   const [format, setFormat] = useState<DumpFormat>("BIN");
@@ -361,17 +410,50 @@ const App: React.FC = () => {
   const [showSetup, setShowSetup] = useState(false);
   const [device, setDevice] = useState<Device>("Flipper Zero");
   const [target, setTarget] = useState<TargetDeviceKey>("RTL8710BN");
+  const [file, setFile] = useState<File | null>(null);
+
+  const addLog = (message: string) => {
+    setLog(l => [...l.slice(-100), message]); // Keep log from growing too large
+  };
 
   const connect = async () => {
+    addLog("Connecting to serial port...");
+    // In a real app, this would use Web Serial API
+    // const port = await navigator.serial.requestPort();
+    // await port.open({ baudRate: 115200 });
     setConnected(true);
-    setLog(l => [...l, "[Mock] Connected."]);
+    addLog("[Mock] Connected successfully.");
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+      addLog(`File selected: ${e.target.files[0].name}`);
+    } else {
+      setFile(null);
+    }
+  };
+  
+  const handleFlash = async () => {
+      if (!file) return;
+      addLog(`[Mock] Starting flash of ${file.name}...`);
+      // Simulate flashing process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      addLog(`[Mock] Flash successful.`);
+  };
+
+  const handleErase = async () => {
+      addLog(`[Mock] Starting erase...`);
+      // Simulate erase process
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      addLog(`[Mock] Erase successful.`);
   };
 
   const dump = async (): Promise<Uint8Array> => {
     const len = Number(length) | 0;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) bytes[i] = (i * 37 + 0x5a) & 0xff;
-    setLog(l => [...l, `[Mock] Dumped ${len} bytes from ${address}.`]);
+    addLog(`[Mock] Dumped ${len} bytes from ${address}.`);
     return bytes;
   };
 
@@ -392,7 +474,7 @@ const App: React.FC = () => {
         downloadBlob(`dump_${address}.txt`, "text/plain", toHexDump(data));
         break;
     }
-    setLog(l => [...l, `[OK] Downloaded dump as ${format}.`] );
+    addLog(`Downloaded dump as ${format}.`);
   };
 
   const programmerInfo = deviceDrivers[device];
@@ -404,52 +486,73 @@ const App: React.FC = () => {
     return Array.from(links.values());
   }, [programmerInfo, targetInfo]);
 
-
   return (
-    <div style={{ fontFamily: "Inter, system-ui, sans-serif", padding: 16, maxWidth: 800, margin: "auto" }}>
-      <h2>Flipper Zero Wi-Fi Dev Board RTL8710BN Flasher</h2>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <button onClick={connected ? undefined : connect} disabled={connected} aria-label="Connect to serial port">
+    <div className="container" style={{fontFamily: "Inter, system-ui, sans-serif"}}>
+      <h1>Flipper Zero Wi-Fi Flasher</h1>
+      
+      <div className="controls">
+        <button onClick={connected ? undefined : connect} disabled={connected}>
           {connected ? "Connected" : "Connect"}
         </button>
-        <label>Address: <input value={address} onChange={e => setAddress(e.target.value)} aria-label="Address:" /></label>
-        <label>Length: <input type="number" value={length} onChange={e => setLength(parseInt(e.target.value || "0", 10))} aria-label="Length:" /></label>
-        <label>Dump-Format:
-          <select value={format} onChange={e => setFormat(e.target.value as DumpFormat)} aria-label="Dump format">
-            {formatOptions.map(o => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
-        </label>
-        <button onClick={handleDownload} disabled={!connected}>Dump & Download</button>
-        <button onClick={() => setShowSetup(true)}>Dump-Setup</button>
+        <button onClick={() => setShowSetup(true)}>Hardware Setup</button>
       </div>
 
-      {showSetup && (
-        <div role="dialog" aria-modal="true" style={{ marginTop: 12, padding: 12, border: "1px solid #ccc", borderRadius: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3>Dump-Setup</h3>
-            <button onClick={() => setShowSetup(false)} aria-label="Close setup" style={{height: 24, width: 24, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>×</button>
-          </div>
-          <div style={{display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8}}>
-            <label>Geräteauswahl (Programmer):&nbsp;
-              <select value={device} onChange={e => setDevice(e.target.value as Device)} aria-label="Geräteauswahl (Programmer)">
-                {Object.keys(deviceDrivers).map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
+      <div className="actions" style={{display: "flex", gap: "20px", flexWrap: "wrap", justifyContent: "space-between"}}>
+        <fieldset style={{flex: 1, minWidth: '250px'}}>
+            <legend><h3>Flash Firmware</h3></legend>
+            <div className="file-input" style={{display: 'flex', flexDirection:'column', gap: '10px'}}>
+                <input type="file" onChange={handleFileChange} aria-label="Select firmware file" />
+                <button onClick={handleFlash} disabled={!connected || !file}>
+                  Flash from File
+                </button>
+            </div>
+        </fieldset>
+
+        <fieldset style={{flex: 1, minWidth: '250px'}}>
+            <legend><h3>Erase</h3></legend>
+            <button id="eraseButton" onClick={handleErase} disabled={!connected} style={{width: '100%'}}>
+              Erase Device
+            </button>
+        </fieldset>
+      </div>
+
+      <fieldset className="dump-controls" style={{marginTop: '20px'}}>
+          <legend><h3>Dump Memory</h3></legend>
+          <div style={{display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap'}}>
+            <label>Address: <input value={address} onChange={e => setAddress(e.target.value)} /></label>
+            <label>Length: <input type="number" value={length} onChange={e => setLength(parseInt(e.target.value || "0", 10))} /></label>
+            <label>Format:
+              <select value={format} onChange={e => setFormat(e.target.value as DumpFormat)}>
+                {formatOptions.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </label>
-            <label>Ziel-Hardware (Target):&nbsp;
-              <select value={target} onChange={e => setTarget(e.target.value as TargetDeviceKey)} aria-label="Ziel-Hardware (Target)">
-                {Object.keys(targetHardware).map(t => (
-                  <option key={t} value={t}>{targetHardware[t as TargetDeviceKey].name}</option>
-                ))}
+            <button id="dumpButton" onClick={handleDownload} disabled={!connected}>
+              Dump & Download
+            </button>
+          </div>
+      </fieldset>
+
+      {showSetup && (
+        <div role="dialog" aria-modal="true" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'white', padding: '20px', border: "1px solid #ccc", borderRadius: 8, boxShadow: '0 4px 8px rgba(0,0,0,0.2)', zIndex: 1000, maxWidth: '90vw', width: '700px' }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2>Hardware Setup</h2>
+            <button onClick={() => setShowSetup(false)} aria-label="Close setup" style={{height: 32, width: 32, fontSize: '1.5rem', border: 'none', background: 'transparent', cursor: 'pointer'}}>×</button>
+          </div>
+          <div style={{display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8}}>
+            <label>Programmer: 
+              <select value={device} onChange={e => setDevice(e.target.value as Device)}>
+                {Object.keys(deviceDrivers).map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </label>
+            <label>Target Hardware: 
+              <select value={target} onChange={e => setTarget(e.target.value as TargetDeviceKey)}>
+                {Object.keys(targetHardware).map(t => <option key={t} value={t}>{targetHardware[t as TargetDeviceKey].name}</option>)}
               </select>
             </label>
           </div>
           <div style={{ marginTop: 12 }}>
             <strong>Verkabelung (Wiring)</strong>
-            <div aria-label="Wiring diagram" style={{ padding: 8, background: "#fafafa", border: "1px dashed #bbb", borderRadius: 6, fontSize: "0.9em" }}>
+            <div aria-label="Wiring diagram" style={{ padding: 8, background: "#fafafa", border: "1px dashed #bbb", borderRadius: 6, fontSize: "0.9em", whiteSpace: 'pre-wrap' }}>
                 <p style={{margin: '4px 0'}}><strong>Programmer ({device}):</strong> {programmerInfo.wiring}</p>
                 <p style={{margin: '4px 0'}}><strong>Target ({targetInfo.name}):</strong> {targetInfo.pins}</p>
             </div>
@@ -466,18 +569,16 @@ const App: React.FC = () => {
             <strong>Treiber, Datenblätter & Links</strong>
             <ul style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.9em' }}>
               {allLinks.map(l => (
-                <li key={l.url}><a href={l.url} target="_blank" rel="noopener noreferrer">{l.title}</a> ({l.url.includes("st.com") || l.url.includes("github.com/stlink-org") ? device : targetInfo.name})</li>
+                <li key={l.url}><a href={l.url} target="_blank" rel="noopener noreferrer">{l.title}</a></li>
               ))}
             </ul>
           </div>
         </div>
       )}
 
-      <div style={{ marginTop: 16 }}>
-        <strong>Log</strong>
-        <div aria-live="polite" aria-relevant="additions text" style={{ whiteSpace: "pre-wrap", minHeight: 80, padding: 8, border: "1px solid #eee", background: '#f8f8f8', fontFamily: 'monospace' }}>
-          {log.join("\n")}
-        </div>
+      <h3 style={{marginTop: '20px'}}>Log</h3>
+      <div className="log-container" aria-live="polite">
+        <pre style={{margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}>{log.join("\n")}</pre>
       </div>
     </div>
   );
